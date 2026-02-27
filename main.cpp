@@ -60,7 +60,7 @@ constexpr float DROP_TIME = 1.0f, // Time to drop from top
     SPIN_TIME = 2.0f,             // Time to complete one spin
     DROP_HEIGHT = 100.0f,         // Distance above screen to drop from
     CYCLE_TIME = DROP_TIME + (BOUNCE_TIME * 4) + FALL_THROUGH_TIME
-               + PAUSE_TIME; // Total cycle time for LeBron
+               + PAUSE_TIME;      // Total cycle time for LeBron
 
 // Struct to represent texture object state and render method
 struct TextureObject {
@@ -158,7 +158,7 @@ void updateBallerina(float deltaTime) {
     float figureEightPhase =
         (gBallerinaTime / FIGURE_EIGHT_TIME) * TWO_PI; // Normalize to 0-2pi
     float rotationPhase = (gBallerinaRotationTime / OSCILLATION_TIME)
-                        * TWO_PI; // Normalize to 0-2pi
+                        * TWO_PI;                      // Normalize to 0-2pi
 
     // Figure 8 movement
     gBallerinaTexture.position.x = ORIGIN.x + X_RADIUS * cos(figureEightPhase);
@@ -300,6 +300,10 @@ void update() {
     float deltaTime = ticks - gPreviousTicks;
     gPreviousTicks = ticks;
 
+    // Update rainbow timer
+    gRainbowTime += deltaTime;
+    if (gRainbowTime > 6.0f) gRainbowTime -= 6.0f;
+
     updateLebron(deltaTime);
     updateBallerina(deltaTime);
     updateMaxwell(deltaTime);
@@ -309,15 +313,11 @@ void update() {
 void render() {
     BeginDrawing();
 
-    gRainbowTime += GetFrameTime();
-    if (gRainbowTime > 6.0f) gRainbowTime -= 6.0f;
-
     // Cycle through 360 degrees of hue
     float hue = fmod(gRainbowTime * 60.0f, 360.0f);
     // Use permitted by professor to create rainbow cycle
     Color rainbowColor =
         ColorFromHSV(hue, 1.0f, 1.0f); // Full saturation and value
-
     ClearBackground(rainbowColor);
 
     // Render the texture on screen
@@ -331,9 +331,9 @@ void render() {
 void shutdown() {
     CloseWindow();
     UnloadTexture(gLebronTexture.texture);
+    UnloadTexture(gBallerinaTexture.texture);
     UnloadTexture(gMaxwellTexture.texture);
     UnloadTexture(gSkibidiTexture.texture);
-    UnloadTexture(gBallerinaTexture.texture);
 }
 
 int main(void) {
