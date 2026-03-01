@@ -49,9 +49,9 @@ public:
     update(float deltaTime); // Set virtual for use by ball and paddle
     void render();
 
-    void normalizeMovement() {
+    void normaliseMovement() {
         Normalise(&mMovement);
-    }; // Fixed spelling for my OCD
+    };
 
     void moveUp() {
         mMovement.y = -1;
