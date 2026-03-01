@@ -24,10 +24,10 @@ constexpr Vector2 ORIGIN = {SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
 constexpr Vector2 BASE_SIZE = {(float)SIZE, (float)SIZE};
 
 // Texture path constants
+constexpr char BALLERINA[] = "assets/ballerina_capuchina.png";
 constexpr char LEBRON[] = "assets/lebron_sunshine.png";
 constexpr char MAXWELL[] = "assets/maxwell_cat.png";
 constexpr char SKIBIDI[] = "assets/skibidi_toilet.png";
-constexpr char BALLERINA[] = "assets/ballerina_capuchina.png";
 
 // Ballerina constants
 constexpr float FIGURE_EIGHT_TIME = 6.0f, // Time to complete one figure 8 loop
@@ -35,6 +35,18 @@ constexpr float FIGURE_EIGHT_TIME = 6.0f, // Time to complete one figure 8 loop
     X_RADIUS = 250.0f,                    // Horizontal radius of the figure 8
     Y_RADIUS = 75.0f,                     // Vertical radius of the figure 8
     OSCILLATION_AMPLITUDE = 20.0f;        // Max rotation angle (degrees)
+
+// LeBron constants
+constexpr float DROP_TIME = 1.0f, // Time to drop from top
+    BOUNCE_TIME = 1.0f,           // Time for each bounce
+    FALL_THROUGH_TIME = 1.0f,     // Time to fall through bottom
+    PAUSE_TIME = 1.0f,            // Time hidden before reappearing
+    MAX_HEIGHT = 350.0f,          // Initial bounce height
+    HEIGHT_LOSS = 0.8f,           // Height multiplier per bounce
+    SPIN_TIME = 2.0f,             // Time to complete one spin
+    DROP_HEIGHT = 100.0f,         // Distance above screen to drop from
+    CYCLE_TIME = DROP_TIME + (BOUNCE_TIME * 4) + FALL_THROUGH_TIME
+               + PAUSE_TIME;      // Total cycle time for LeBron
 
 // Maxwell constants
 constexpr float ORBIT_TIME = 3.0f, // Time to complete one orbit
@@ -49,18 +61,6 @@ constexpr float RISE_TIME = 1.0f, // Time to rise up
     POP_HEIGHT = 200.0f,          // How high Skibidi pops up
     BASE_WIDTH = 150.0f,          // Base width of Skibidi
     BASE_HEIGHT = 240.0f;         // Base height of Skibidi
-
-// LeBron constants
-constexpr float DROP_TIME = 1.0f, // Time to drop from top
-    BOUNCE_TIME = 1.0f,           // Time for each bounce
-    FALL_THROUGH_TIME = 1.0f,     // Time to fall through bottom
-    PAUSE_TIME = 1.0f,            // Time hidden before reappearing
-    MAX_HEIGHT = 350.0f,          // Initial bounce height
-    HEIGHT_LOSS = 0.8f,           // Height multiplier per bounce
-    SPIN_TIME = 2.0f,             // Time to complete one spin
-    DROP_HEIGHT = 100.0f,         // Distance above screen to drop from
-    CYCLE_TIME = DROP_TIME + (BOUNCE_TIME * 4) + FALL_THROUGH_TIME
-               + PAUSE_TIME;      // Total cycle time for LeBron
 
 // Struct to represent texture object state and render method
 struct TextureObject {
@@ -107,28 +107,28 @@ float gPreviousTicks = 0.0f;
 int gFrameCounter = 0;
 
 // Global timers
-float gLebronTime = 0.0f;
-float gLebronSpinTime = 0.0f;
 float gBallerinaTime = 0.0f;
 float gBallerinaRotationTime = 0.0f;
+float gLebronTime = 0.0f;
+float gLebronSpinTime = 0.0f;
 float gMaxwellOrbitTime = 0.0f;
 float gMaxwellRotationTime = 0.0f;
 float gSkibidiTime = 0.0f;
 float gRainbowTime = 0.0f;
 
 // Global texture objects
+TextureObject gBallerinaTexture(BALLERINA, Vector2 {180.0f, 200.0f});
 TextureObject gLebronTexture(LEBRON, Vector2 {150.0f, 150.0f});
 TextureObject gMaxwellTexture(MAXWELL, Vector2 {81.4f, 121.2f});
 TextureObject gSkibidiTexture(SKIBIDI, Vector2 {150.0f, 240.0f});
-TextureObject gBallerinaTexture(BALLERINA, Vector2 {180.0f, 200.0f});
 
 // Function Declarations
 void initialise();
 void processInput();
 void updateBallerina(float deltaTime);
+void updateLebron(float deltaTime);
 void updateMaxwell(float deltaTime);
 void updateSkibidi(float deltaTime);
-void updateLebron(float deltaTime);
 void update();
 void render();
 void shutdown();
@@ -147,6 +147,60 @@ void initialise() {
 
 void processInput() {
     if (WindowShouldClose()) gAppStatus = TERMINATED;
+}
+
+void update() {
+    // Delta time
+    float ticks = (float)GetTime();
+    float deltaTime = ticks - gPreviousTicks;
+    gPreviousTicks = ticks;
+
+    // Update rainbow timer
+    gRainbowTime += deltaTime;
+    if (gRainbowTime > 6.0f) gRainbowTime -= 6.0f;
+
+    updateLebron(deltaTime);
+    updateBallerina(deltaTime);
+    updateMaxwell(deltaTime);
+    updateSkibidi(deltaTime);
+}
+
+void render() {
+    BeginDrawing();
+
+    // Cycle through 360 degrees of hue
+    float hue = fmod(gRainbowTime * 60.0f, 360.0f);
+    // Use permitted by professor to create rainbow cycle
+    ClearBackground(ColorFromHSV(hue, 1.0f, 1.0f));
+
+    // Render the texture on screen
+    gBallerinaTexture.renderObject();
+    gLebronTexture.renderObject();
+    gMaxwellTexture.renderObject();
+    gSkibidiTexture.renderObject();
+    EndDrawing();
+}
+
+void shutdown() {
+    CloseWindow();
+    UnloadTexture(gBallerinaTexture.texture);
+    UnloadTexture(gLebronTexture.texture);
+    UnloadTexture(gMaxwellTexture.texture);
+    UnloadTexture(gSkibidiTexture.texture);
+}
+
+int main(void) {
+    initialise();
+
+    while (gAppStatus == RUNNING) {
+        processInput();
+        update();
+        render();
+    }
+
+    shutdown();
+
+    return 0;
 }
 
 void updateBallerina(float deltaTime) {
@@ -292,60 +346,4 @@ void updateLebron(float deltaTime) {
     float rotationPhase = (gLebronSpinTime / SPIN_TIME) * TWO_PI;
     gLebronTexture.angle =
         (rotationPhase / TWO_PI) * 360.0f; // Convert to degrees
-}
-
-void update() {
-    // Delta time
-    float ticks = (float)GetTime();
-    float deltaTime = ticks - gPreviousTicks;
-    gPreviousTicks = ticks;
-
-    // Update rainbow timer
-    gRainbowTime += deltaTime;
-    if (gRainbowTime > 6.0f) gRainbowTime -= 6.0f;
-
-    updateLebron(deltaTime);
-    updateBallerina(deltaTime);
-    updateMaxwell(deltaTime);
-    updateSkibidi(deltaTime);
-}
-
-void render() {
-    BeginDrawing();
-
-    // Cycle through 360 degrees of hue
-    float hue = fmod(gRainbowTime * 60.0f, 360.0f);
-    // Use permitted by professor to create rainbow cycle
-    Color rainbowColor =
-        ColorFromHSV(hue, 1.0f, 1.0f); // Full saturation and value
-    ClearBackground(rainbowColor);
-
-    // Render the texture on screen
-    gLebronTexture.renderObject();
-    gBallerinaTexture.renderObject();
-    gMaxwellTexture.renderObject();
-    gSkibidiTexture.renderObject();
-    EndDrawing();
-}
-
-void shutdown() {
-    CloseWindow();
-    UnloadTexture(gLebronTexture.texture);
-    UnloadTexture(gBallerinaTexture.texture);
-    UnloadTexture(gMaxwellTexture.texture);
-    UnloadTexture(gSkibidiTexture.texture);
-}
-
-int main(void) {
-    initialise();
-
-    while (gAppStatus == RUNNING) {
-        processInput();
-        update();
-        render();
-    }
-
-    shutdown();
-
-    return 0;
 }
