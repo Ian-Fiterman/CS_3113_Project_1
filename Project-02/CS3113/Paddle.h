@@ -1,6 +1,6 @@
 #ifndef PADDLE_H
 #define PADDLE_H
-#include "constants.h"
+#include "Constants.h"
 #include "Entity.h"
 
 class Ball; // Forward declaration
@@ -18,4 +18,4 @@ private:
     Ball* getClosestBall(const std::vector<Ball*>& balls, int activeBalls);
 };
 
-#endif
+#endif // PADDLE_H

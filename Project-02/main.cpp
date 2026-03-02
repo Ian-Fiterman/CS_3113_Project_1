@@ -148,12 +148,12 @@ void update() {
         right_paddle->singlePlayerAI(gBalls, gActiveBalls);
     }
     // Update entities
-    left_paddle->update(deltaTime);
-    right_paddle->update(deltaTime);
     for (int i = 0; i < gActiveBalls; i++) {
         gBalls[i]->update(deltaTime, left_paddle, right_paddle, gLeftScore,
                           gRightScore);
     }
+    left_paddle->update(deltaTime);
+    right_paddle->update(deltaTime);
 }
 
 void render() {
@@ -194,7 +194,7 @@ void setBallCount(int count) {
     for (size_t i = 0; i < gActiveBalls; i++) {
         Ball* b = gBalls[i];
         if (gActiveBalls == 67) {
-            b->setBaseSpeed(Ball::SLOW_SPEED);    // Slow down balls for 67 mode
+            b->setBaseSpeed(Ball::SLOW_SPEED); // Slow down balls for 67 mode
         } else {
             b->setBaseSpeed(Ball::FAST_SPEED); // 1-3 balls use default speed
         }
@@ -253,7 +253,6 @@ void renderScores(Player players) {
                  SCORE_FONT_SIZE, WHITE);
     }
     if (players == RIGHT_P || players == BOTH) {
-
         DrawText(TextFormat("%d", gRightScore), RIGHT_SCORE_X, SCORE_Y,
                  SCORE_FONT_SIZE, WHITE);
     }

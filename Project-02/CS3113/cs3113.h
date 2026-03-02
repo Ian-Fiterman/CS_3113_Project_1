@@ -5,7 +5,6 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
-#include <cfloat>
 #include <map>
 #include <math.h>
 #include <stdio.h>

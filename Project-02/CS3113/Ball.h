@@ -1,6 +1,6 @@
 #ifndef BALL_H
 #define BALL_H
-#include "constants.h"
+#include "Constants.h"
 #include "Entity.h"
 
 class Paddle;
@@ -19,14 +19,15 @@ public:
         mRadius = scale.x / 2.0f;
     }
 
-    static constexpr int SLOW_SPEED = 100; // 67 mode
-    static constexpr float FAST_SPEED = 250; // 1-3 balls
+    static constexpr int SLOW_SPEED = 100;      // 67 mode
+    static constexpr float FAST_SPEED = 250.0f; // 1-3 balls
 
 private:
-    float sweepCollision(const Paddle* paddle, float deltaTime,
-                         Vector2& outNormal) const;
-    void resolveCollision(Paddle* const paddle, Vector2 normal);
-    void depenetrate(const Paddle* paddle);
+    float sweepCollision(const Paddle* paddle, Vector2& outNormal,
+                         float deltaTime) const;
+    void resolveCollision(Paddle* const paddle, Vector2 normal, float tImpact,
+                          float deltaTime);
+    void depenetrate(const Paddle* paddle, float deltaTime);
 
     float mSpeedMultiplier = 1.0f;
     float mBaseSpeed = FAST_SPEED;

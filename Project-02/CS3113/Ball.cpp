@@ -9,8 +9,8 @@ void Ball::update(float deltaTime, Paddle* leftPaddle, Paddle* rightPaddle,
                   int& leftScore, int& rightScore) {
     // Calculate swept collision normal vectors
     Vector2 normalLeft, normalRight;
-    float tLeft = sweepCollision(leftPaddle, deltaTime, normalLeft);
-    float tRight = sweepCollision(rightPaddle, deltaTime, normalRight);
+    float tLeft = sweepCollision(leftPaddle, normalLeft, deltaTime);
+    float tRight = sweepCollision(rightPaddle, normalRight, deltaTime);
     // Determine which paddle hit first, if any
     Paddle* sweptPaddle = nullptr;
     Vector2 contactNormal = {0.0f, 0.0f};
@@ -31,10 +31,10 @@ void Ball::update(float deltaTime, Paddle* leftPaddle, Paddle* rightPaddle,
             mMovement.x * mSpeed * deltaTime * tImpact; // Move to contact point
         mPosition.y +=
             mMovement.y * mSpeed * deltaTime * tImpact; // Move to contact point
-        resolveCollision(sweptPaddle,
-                         contactNormal); // Resolve collision at contact point
+        resolveCollision(sweptPaddle, contactNormal,
+                         tImpact, deltaTime); // Resolve collision at contact point
         float remaining =
-            1.0f - tImpact; // Continue moving for remainder of frame
+            1.0f - tImpact;          // Continue moving for remainder of frame
         mPosition.x += mMovement.x * mSpeed * deltaTime * remaining;
         mPosition.y += mMovement.y * mSpeed * deltaTime * remaining;
     } else {
@@ -48,9 +48,8 @@ void Ball::update(float deltaTime, Paddle* leftPaddle, Paddle* rightPaddle,
         mPosition.y = SCREEN_HEIGHT - mRadius;
         mMovement.y = -mMovement.y;
     }
-    // Depenetrate paddle (if paddle passes over the ball)
-    depenetrate(leftPaddle);
-    depenetrate(rightPaddle);
+    // Depenetrate hit paddle
+    if (sweptPaddle) (sweptPaddle, deltaTime);
     // Scoring
     if (mPosition.x - mRadius > SCREEN_WIDTH) {
         leftScore++;
@@ -64,12 +63,11 @@ void Ball::update(float deltaTime, Paddle* leftPaddle, Paddle* rightPaddle,
 /**
  * @brief Performs a sweep collision check using the slab method
  * @param paddle
- * @param deltaTime
  * @param outNormal normal vector of impact
+ * @param deltaTime
  * @return the time of impact with the paddle
  */
-float Ball::sweepCollision(const Paddle* paddle, float deltaTime,
-                           Vector2& outNormal) const {
+float Ball::sweepCollision(const Paddle* paddle, Vector2& outNormal, float deltaTime) const {
     // Get paddle position and collider
     Vector2 paddlePos = paddle->getPosition();
     Vector2 paddleCol = paddle->getColliderDimensions();
@@ -85,7 +83,7 @@ float Ball::sweepCollision(const Paddle* paddle, float deltaTime,
     // Compute relative velocity of the ball with respect to the paddle
     Vector2 relVel = {mMovement.x * mSpeed * deltaTime - paddleVel.x,
                       mMovement.y * mSpeed * deltaTime - paddleVel.y};
-    // Epsilon is from raymath and its 0.00001f to prevent floating point errs
+    // Epsilon is from raymath and its 0.000001f to prevent floating point errs
     if (fabsf(relVel.x) < EPSILON && fabsf(relVel.y) < EPSILON) return -1.0f;
     // Initialize entry and exit times for "slab test"
     // Note: This took a crap ton of googling, reading, and trial and error to
@@ -129,17 +127,23 @@ float Ball::sweepCollision(const Paddle* paddle, float deltaTime,
  * position corrected in update()
  * @param paddle
  * @param normal
+ * @param tImpact
+ * @param deltaTime
  */
-void Ball::resolveCollision(Paddle* const paddle, Vector2 normal) {
+void Ball::resolveCollision(Paddle* const paddle, Vector2 normal,
+                            float tImpact, float deltaTime) {
     if (fabsf(normal.y) > 0.5f) {
         // Top or bottom face: reflect vertical movement
         mMovement.y = -mMovement.y;
     } else {
-        // Side face: reflect horizontally and apply hit offset
+        // Side face: apply hit offset based on paddle position at tImpact
         float paddleHalfHeight = paddle->getScale().y / 2.0f;
-        float hitOffset =
-            clamp((mPosition.y - paddle->getPosition().y) / paddleHalfHeight,
-                  -1.0f, 1.0f);
+        // Compute paddle position at time of impact
+        float paddleYAtImpact = paddle->getPosition().y
+                              + paddle->getMovement().y * paddle->getSpeed()
+                                    * deltaTime * tImpact;
+        float hitOffset = clamp(
+            (mPosition.y - paddleYAtImpact) / paddleHalfHeight, -1.0f, 1.0f);
         mMovement.y = hitOffset;
         Normalise(&mMovement);
     }
@@ -161,10 +165,15 @@ void Ball::resolveCollision(Paddle* const paddle, Vector2 normal) {
  * @brief Corrects residual overlap between paddle and the ball. Does not count
  * as a collision
  * @param paddle
+ * @param deltaTime
  */
-void Ball::depenetrate(const Paddle* paddle) {
-    // Get paddle position and collider
-    Vector2 paddlePos = paddle->getPosition();
+void Ball::depenetrate(const Paddle* paddle, float deltaTime) {
+    // Compute paddle position at end of frame
+    Vector2 paddlePos = {
+        paddle->getPosition().x
+            + paddle->getMovement().x * paddle->getSpeed() * deltaTime,
+        paddle->getPosition().y
+            + paddle->getMovement().y * paddle->getSpeed() * deltaTime};
     Vector2 paddleCol = paddle->getColliderDimensions();
     // Calculate paddle collider bounds
     float rectLeft = paddlePos.x - paddleCol.x / 2.0f;
@@ -180,7 +189,7 @@ void Ball::depenetrate(const Paddle* paddle) {
     float distSq = distX * distX + distY * distY;
     // Case 1: No overlap at all: return
     if (distSq >= mRadius * mRadius) return;
-    // Cas 2: Ball center inside paddle bounds: push out along shallowest axis
+    // Case 2: Ball center inside paddle bounds: push out along shallowest axis
     if (distSq == 0.0f) {
         // Calculate overlap on each side
         float overlapLeft = mPosition.x - rectLeft;
@@ -205,10 +214,10 @@ void Ball::depenetrate(const Paddle* paddle) {
         // Adjust position by mtv
         mPosition.x += mtv.x;
         mPosition.y += mtv.y;
-    } else {               // Center outside paddle but still overlapping
+    } else {               // Case 3: Center outside paddle but still overlapping
         float dist =
-            sqrtf(distSq); // distance from ball center to closest point
-        float penetration = mRadius - dist; // how much to push ball out
+            sqrtf(distSq); // Distance from ball center to closest point
+        float penetration = mRadius - dist; // How much to push ball out
         mPosition.x += (distX / dist) * penetration;
         mPosition.y += (distY / dist) * penetration;
     }
